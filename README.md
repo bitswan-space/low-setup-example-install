@@ -27,22 +27,92 @@ Content-Type: application/json
 ```
 
 ### Subscribe to mqtt topic related to pump
-1. Exec to mosquitto container
-```shell script
-docker exec -it mosquitto /bin/sh
-```
-2. Subscribe to topic
-```shell script
-mosquitto_sub -h mosquitto -t "{container_id_of_pump}/Metrics"
-```
+- For getting pump topology (pipelines) subscribe to `c/{container_id}/topology`
+- For getting pipeline topology (components) subscribe to `c/{container_id}/c/{pipeline_id}/topology`
+
 
 ### Publish get message to generate topology
-1. Exec to mosquitto container
-```shell script
-docker exec -it mosquitto /bin/sh
+- To get pump topology, publish `get` message to `c/{container_id}/topology/get` topic
+- To get pipeline topology, publish `get` message to `c/{container_id}/c/{pipeline_id}/topology/get`
+
+### Structure of JSON from the MQTT topics
+- Pump topology
+```json
+{
+    "topology": {
+        "ExamplePipeline": {
+            "wires": [],
+            "properties": [],
+            "metrics": []
+        }
+    },
+    "display-style": "graph",
+    "display-priority": "shown"
+}
 ```
-2. Publish get message
-```shell script
-mosquitto_pub -h mosquitto -t "{container_id_of_pump}/Metrics/get" -m "get"
+- Pipeline topology
+```json
+{
+    "topology": {
+        "RandomNumberSource": {
+            "wires": [
+                "ExampleProcessor"
+            ],
+            "properties": {},
+            "metrics": {
+                "eps.out": 0
+            }
+        },
+        "ExampleProcessor": {
+            "wires": [
+                "FileCSVSink"
+            ],
+            "properties": {},
+            "metrics": {
+                "eps.in": 0,
+                "eps.out": 0
+            }
+        },
+        "FileCSVSink": {
+            "wires": [],
+            "properties": {},
+            "metrics": {
+                "eps.in": 0,
+                "eps.out": 0
+            }
+        }
+    },
+    "display-style": "graph",
+    "display-priority": "shown"
+}
 ```
 
+## Getting events from components
+Assuming you have already set up the container id in the pumps, you can get the events from components by subscribing to this MQTT topic
+```
+c/{container_id}/c/{pipeline_id}/c/{component_id}/events
+```
+
+When you want to get events you send this JSON specifing how many events you want to get
+```json
+{
+    "event_count": <value>
+}
+```
+and send this JSON to this MQTT topic
+```
+c/{container_id}/c/{pipeline_id}/c/{component_id}/events/subscribe
+```
+The JSON structure from the output will looks like this
+```json
+{
+    "timestamp": 1696516600329994262,
+    "data": {
+        "timestamp": "2023-10-05 14:36:40.289688",
+        "random_number": 60,
+        "squared": 3600,
+        "doubled": 120
+    },
+    "event_number": 14292
+}
+```
