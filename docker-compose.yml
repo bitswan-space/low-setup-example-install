@@ -7,8 +7,29 @@ volumes:
   mosquitto_data:
   mosquitto_log:
   postgres-keycloak-data:
+  emqx_data:
 
 services:
+  caddy:
+    image: caddy:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+    environment:
+      - DOMAIN="http://platform.local"
+    networks:
+      default:
+        aliases:
+          - "platform.local"
+          - "poc.platform.local"
+          - "influx.platform.local"
+          - "keycloak.platform.local"
+
   influxdb:
     image: influxdb:2.0
     restart: always
@@ -33,18 +54,22 @@ services:
       - "9000:9000"
       - "9443:9443"
 
-  mosquitto:
-    image: eclipse-mosquitto
-    container_name: mosquitto
+  emqx:
+    image: emqx:latest
+    container_name: emqx
     restart: always
-    # network_mode: host
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - mosquitto_data:/mosquitto/data
-      - mosquitto_log:/mosquitto/log
+    #    volumes:
     ports:
       - "1883:1883"
-      - "9001:9001"
+      - "8083:8083"
+      - "8084:8084"
+      - "8883:8883"
+      - "18083:18083"
+    environment:
+      - EMQX_DASHBOARD__DEFAULT_PASSWORD="foo"
+    volumes:
+      - emqx_data:/opt/emqx/data
+
 
   keycloak:
     image: public.registry.bitswan.space/bitswan/bitswan-keycloak:sha256_3c9b17e2d24021c65c8f51d692fabc1d5de76018b031783d3d306ddac79397f0
@@ -59,7 +84,7 @@ services:
     image: postgres:12-bullseye
     restart: always
     volumes:
-    - postgres-keycloak-data:/var/lib/postgresql/data
+      - postgres-keycloak-data:/var/lib/postgresql/data
     env_file: .postgres.env
 
   mailhog:
@@ -83,3 +108,7 @@ services:
       - ./cds/discovery_service.yaml:/conf/config.yaml:r
       - ./cds/navigation_menu.json:/conf/navigation_menu.json
       - ./cds/navigation_schema.json:/conf/navigation_schema.json:r
+
+networks:
+  default:
+    external: false
